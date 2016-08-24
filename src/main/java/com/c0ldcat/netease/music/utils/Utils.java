@@ -1,0 +1,43 @@
+package com.c0ldcat.netease.music.utils;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.Date;
+
+public class Utils {
+    public static String getStringFromInputStream(InputStream is) {
+        BufferedReader br = null;
+        StringBuilder sb = new StringBuilder();
+        String line;
+        try {
+            br = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+            while ((line = br.readLine()) != null) {
+                if (sb.length() != 0) {
+                    sb.append("\n");
+                }
+                sb.append(line);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    public static void log(String log) {
+        log(log, true);
+    }
+
+    public static void log(String log, boolean b) {
+        System.out.println((b ? "[" + new Date() + "]" : "") + log);
+    }
+}
