@@ -81,7 +81,7 @@ public class Song {
         return "{" + name + "," + id + "," + bDfsID + "}";
     }
 
-
+    //based on [darknessomi/musicbox](https://github.com/darknessomi/musicbox)
     private static String encryptedId(BigInteger id) {
         byte key[] = songKey.getBytes();
         int keyLen = key.length;

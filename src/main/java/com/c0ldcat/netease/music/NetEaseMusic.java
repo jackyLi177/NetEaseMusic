@@ -271,6 +271,7 @@ public class NetEaseMusic {
         }
     }
 
+    //based on [darknessomi/musicbox](https://github.com/darknessomi/musicbox)
     private static String encryptedRequest(String text) {
         String secKey = createSecretKey(16);
         String encText = aesEncrypt(aesEncrypt(text, nonce), secKey);
@@ -283,6 +284,7 @@ public class NetEaseMusic {
         }
     }
 
+    //based on [darknessomi/musicbox](https://github.com/darknessomi/musicbox)
     private static String aesEncrypt(String text, String key) {
         try {
             IvParameterSpec iv = new IvParameterSpec("0102030405060708".getBytes("UTF-8"));
@@ -300,6 +302,7 @@ public class NetEaseMusic {
         }
     }
 
+    //based on [darknessomi/musicbox](https://github.com/darknessomi/musicbox)
     private static String rsaEncrypt(String text, String pubKey, String modulus) {
         text = new StringBuilder(text).reverse().toString();
         BigInteger rs = new BigInteger(String.format("%x", new BigInteger(1, text.getBytes())), 16)
@@ -315,6 +318,7 @@ public class NetEaseMusic {
         }
     }
 
+    //based on [darknessomi/musicbox](https://github.com/darknessomi/musicbox)
     private static String createSecretKey(int i) {
         return RandomStringUtils.random(i, "0123456789abcde");
     }
