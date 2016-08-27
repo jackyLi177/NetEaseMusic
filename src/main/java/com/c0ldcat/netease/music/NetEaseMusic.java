@@ -1,5 +1,8 @@
 package com.c0ldcat.netease.music;
 
+import com.c0ldcat.netease.music.utils.Config;
+import com.c0ldcat.netease.music.utils.ConfigNoFoundException;
+import com.c0ldcat.netease.music.utils.NoLoginException;
 import com.c0ldcat.netease.music.utils.Utils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -15,16 +18,17 @@ import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.HttpClients;
+import org.json.JSONObject;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.math.BigInteger;
 import java.net.URLEncoder;
 
 public class NetEaseMusic {
+    //key
     final static private String modulus = "00e0b509f6259df8642dbc35662901477df22677ec152b5ff68ace615bb7" +
             "b725152b3ab17a876aea8a5aa76d2e417629ec4ee341f56135fccf695280" +
             "104e0312ecbda92557c93870114af6c9d05c4f7f0c3685b7a46bee255932" +
@@ -42,9 +46,88 @@ public class NetEaseMusic {
             {"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.152 Safari/537.36"}
     };
 
+    //action
     final static private int HTTP_METHOD_GET = 0;
     final static private int HTTP_METHOD_POST = 1;
-    final static private int HTTP_METHOD_LOGIN_POST = 2;
+
+    //state
+    private CookieStore cookieStore;
+    private RequestConfig requestConfig;
+    private HttpClientContext httpClientContext;
+
+    private Config config;
+    private int uid;
+
+    public static void main (String args[]) throws Exception{
+        NetEaseMusic netEaseMusic = new NetEaseMusic("/home/c0ldcat/config");
+        netEaseMusic.userPlaylist();
+    }
+
+    public NetEaseMusic(String configFile) {
+        config = new Config(configFile);
+
+        try {
+            uid = config.getId();
+            cookieStore = config.getCookieStore();
+        } catch (ConfigNoFoundException e) {
+            switch (e.getKey()) {
+                case Config.CONFIG_ID:
+                case Config.CONFIG_COOKIE:
+                    uid = 0;
+                    cookieStore = new BasicCookieStore();
+                    config.setCookieStore(cookieStore);
+                    break;
+            }
+        }
+
+        //set request config
+        //set timeout
+        final int TIMEOUTMS = 15 * 1000;
+        requestConfig = RequestConfig.custom().setConnectionRequestTimeout(TIMEOUTMS).setConnectTimeout(TIMEOUTMS).setSocketTimeout(TIMEOUTMS).build();
+
+        //set cookie
+        requestConfig = RequestConfig.copy(requestConfig).setCookieSpec(CookieSpecs.STANDARD_STRICT).build();
+
+        //create http client context
+        httpClientContext = HttpClientContext.create();
+        httpClientContext.setCookieStore(cookieStore);
+    }
+
+    public boolean login(String username, String password) {
+        //create request data
+        JSONObject requestJsonObject = new JSONObject();
+        requestJsonObject.put("username", username);
+        requestJsonObject.put("password", password);
+        requestJsonObject.put("rememberLogin", "true");
+        String data = encryptedRequest(requestJsonObject.toString());
+
+        //post
+        String response = rawHttpRequest(HTTP_METHOD_POST, "https://music.163.com/weapi/login/", data);
+        if (response == null) {
+            Utils.log("login request error");
+            return false;
+        }
+
+        //analyze response
+        JSONObject responseJsonObject = new JSONObject(response);
+        if(responseJsonObject.getInt("code") == 200){
+            config.setId(uid = responseJsonObject.getJSONObject("account").getInt("id"));
+            config.setCookieStore(cookieStore);
+            return true;
+        } else {
+            Utils.log("login failed");
+            Utils.log("response:" + response);
+            return false;
+        }
+    }
+
+    public void userPlaylist() throws NoLoginException {
+        if (uid == 0) {
+            throw new NoLoginException();
+        } else {
+            Utils.log(rawHttpRequest(HTTP_METHOD_GET, "http://music.163.com/api/user/playlist/?offset=0&limit=100&uid=" + uid));
+        }
+    }
 
     private String rawHttpRequest(int method, String action) {
         if (method == HTTP_METHOD_GET) {
@@ -65,10 +148,6 @@ public class NetEaseMusic {
             for (String[] header : headers) {
                 httpGet.addHeader(header[0], header[1]);
             }
-
-            //set timeout
-            final int TIMEOUTMS = 15 * 1000;
-            RequestConfig requestConfig = RequestConfig.custom().setConnectionRequestTimeout(TIMEOUTMS).setConnectTimeout(TIMEOUTMS).setSocketTimeout(TIMEOUTMS).build();
             httpGet.setConfig(requestConfig);
 
             //go
@@ -78,18 +157,19 @@ public class NetEaseMusic {
                     public String handleResponse(HttpResponse httpResponse) throws IOException {
                         return Utils.getStringFromInputStream(httpResponse.getEntity().getContent());
                     }
-                });
+                }, httpClientContext);
             } catch (Exception e) {
                 return null;
             }
 
             return resp;
-        } else if (method == HTTP_METHOD_POST || method == HTTP_METHOD_LOGIN_POST) {
+        } else if (method == HTTP_METHOD_POST) {
             //new post
             HttpPost httpPost = new HttpPost(action);
             for (String[] header : headers) {
                 httpPost.addHeader(header[0], header[1]);
             }
+            httpPost.setConfig(requestConfig);
 
             //set data
             try {
@@ -97,18 +177,6 @@ public class NetEaseMusic {
             } catch (UnsupportedEncodingException e){
                 return null;
             }
-
-            //set timeout
-            final int TIMEOUTMS = 15 * 1000;
-            RequestConfig requestConfig = RequestConfig.custom().setConnectionRequestTimeout(TIMEOUTMS).setConnectTimeout(TIMEOUTMS).setSocketTimeout(TIMEOUTMS).setCookieSpec(CookieSpecs.STANDARD_STRICT).build();
-
-            //set cookie
-            requestConfig = RequestConfig.copy(requestConfig).setCookieSpec(CookieSpecs.STANDARD_STRICT).build();
-            CookieStore cookieStore = new BasicCookieStore();
-            HttpClientContext httpClientContext = HttpClientContext.create();
-            httpClientContext.setCookieStore(cookieStore);
-
-            httpPost.setConfig(requestConfig);
 
             //go
             try {
@@ -122,22 +190,22 @@ public class NetEaseMusic {
                 return null;
             }
 
-            if (method == HTTP_METHOD_LOGIN_POST){
-                //save cookie
-                System.out.println("cookie : " + httpClientContext.getCookieStore().getCookies().toString());
-            }
-
             return resp;
         } else {
             return null;
         }
     }
 
-    private static String encrypted_request(String text) {
+    private static String encryptedRequest(String text) {
         String secKey = createSecretKey(16);
         String encText = aesEncrypt(aesEncrypt(text, nonce), secKey);
         String encSecKey = rsaEncrypt(secKey, pubKey, modulus);
-        return "params=" + URLEncoder.encode(encText) + "&encSecKey=" + URLEncoder.encode(encSecKey);
+        try {
+            return "params=" + URLEncoder.encode(encText, "UTF-8") + "&encSecKey=" + URLEncoder.encode(encSecKey, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            //ignore
+            return null;
+        }
     }
 
     private static String aesEncrypt(String text, String key) {
@@ -145,16 +213,16 @@ public class NetEaseMusic {
             IvParameterSpec iv = new IvParameterSpec("0102030405060708".getBytes("UTF-8"));
             SecretKeySpec skeySpec = new SecretKeySpec(key.getBytes("UTF-8"), "AES");
 
-            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding ");
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             cipher.init(Cipher.ENCRYPT_MODE, skeySpec, iv);
 
             byte[] encrypted = cipher.doFinal(text.getBytes());
 
             return Base64.encodeBase64String(encrypted);
         } catch (Exception ex) {
-            ex.printStackTrace();
+            //ignore
+            return null;
         }
-        return null;
     }
 
     private static String rsaEncrypt(String text, String pubKey, String modulus) {
