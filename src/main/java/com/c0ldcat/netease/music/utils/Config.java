@@ -10,7 +10,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.*;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,10 +28,7 @@ public class Config {
     public final static String CONFIG_PLAYLIST_SONG_LIST = "playlist_song_list";
     public final static String CONFIG_SONG_LIST = "songs";
     public final static String CONFIG_SONG_ID = "song_id";
-    public final static String CONFIG_SONG_B_DFS_ID = "song_b_id";
-    public final static String CONFIG_SONG_H_DFS_ID = "song_h_id";
-    public final static String CONFIG_SONG_M_DFS_ID = "song_m_id";
-    public final static String CONFIG_SONG_L_DFS_ID = "song_l_id";
+    public final static String CONFIG_SONG_URL = "song_url";
     public final static String CONFIG_SONG_NAME = "song_name";
 
     public Config(NetEaseMusic netEaseMusic, String file) {
@@ -114,11 +110,7 @@ public class Config {
         JSONObject jsonSong = new JSONObject();
         jsonSong.put(CONFIG_SONG_ID, song.getId());
         jsonSong.put(CONFIG_SONG_NAME,  song.getName());
-        jsonSong.put(CONFIG_SONG_B_DFS_ID, song.getBDfsID());
-        jsonSong.put(CONFIG_SONG_H_DFS_ID, song.getHDfsID());
-        jsonSong.put(CONFIG_SONG_M_DFS_ID, song.getMDfsID());
-        jsonSong.put(CONFIG_SONG_L_DFS_ID, song.getLDfsID());
-
+        jsonSong.put(CONFIG_SONG_URL,  song.getUrl());
 
         //add to config
         jsonSongs.put(jsonSong);
@@ -146,29 +138,14 @@ public class Config {
             if ( jsonSong.getInt(CONFIG_SONG_ID) == id ) {
                 String name = jsonSong.getString(CONFIG_SONG_NAME);
 
-                BigInteger bDfsId, hDfsId, mDfsId, lDfsId;
+                String url = null;
                 try {
-                    bDfsId = jsonSong.getBigInteger(CONFIG_SONG_B_DFS_ID);
+                    url = jsonSong.getString(CONFIG_SONG_URL);
                 } catch (JSONException e) {
-                    bDfsId = null;
-                }
-                try {
-                    hDfsId = jsonSong.getBigInteger(CONFIG_SONG_H_DFS_ID);
-                } catch (JSONException e) {
-                    hDfsId = null;
-                }
-                try {
-                    mDfsId = jsonSong.getBigInteger(CONFIG_SONG_M_DFS_ID);
-                } catch (JSONException e) {
-                    mDfsId = null;
-                }
-                try {
-                    lDfsId = jsonSong.getBigInteger(CONFIG_SONG_L_DFS_ID);
-                } catch (JSONException e) {
-                    lDfsId = null;
+                    //ignore
                 }
 
-                return new Song(netEaseMusic, name, id, bDfsId, hDfsId, mDfsId, lDfsId);
+                return new Song(netEaseMusic, name, id, url);
             }
         }
 

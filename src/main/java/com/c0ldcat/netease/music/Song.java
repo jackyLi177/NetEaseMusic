@@ -1,34 +1,32 @@
 package com.c0ldcat.netease.music;
 
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.codec.digest.DigestUtils;
-
-import java.math.BigInteger;
+import com.c0ldcat.netease.music.utils.NoLoginException;
+import org.apache.http.cookie.Cookie;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class Song {
     private String name;
     private int id;
     private NetEaseMusic netEaseMusic;
 
-    private BigInteger bDfsID;
-    private BigInteger hDfsID;
-    private BigInteger mDfsID;
-    private BigInteger lDfsID;
-
-    public static final int B_MUSIC = 0;
-    public static final int H_MUSIC = 1;
-    public static final int M_MUSIC = 2;
-    public static final int L_MUSIC = 3;
-
     final static private String songKey = "3go8&$8*3*3h0k(2)2";
 
-    public Song(NetEaseMusic netEaseMusic, String name, int id, BigInteger bDfsID, BigInteger hDfsID, BigInteger mDfsID, BigInteger lDfsID) {
+    private String url;
+
+    public Song(NetEaseMusic netEaseMusic, int id) {
+        this(netEaseMusic, null, id);
+    }
+
+    public Song(NetEaseMusic netEaseMusic, String name, int id) {
+        this(netEaseMusic, name, id, null);
+    }
+
+    public Song(NetEaseMusic netEaseMusic, String name, int id, String url) {
+        this.netEaseMusic = netEaseMusic;
         this.name = name;
         this.id = id;
-        this.bDfsID = bDfsID;
-        this.hDfsID = hDfsID;
-        this.mDfsID = mDfsID;
-        this.lDfsID = lDfsID;
+        this.url = url;
     }
 
     public int getId() {
@@ -39,61 +37,46 @@ public class Song {
         return name;
     }
 
-    public BigInteger getBDfsID() {
-        return bDfsID;
+    public String getUrl() {
+        return url;
     }
 
-    public BigInteger getHDfsID() {
-        return hDfsID;
-    }
-
-    public BigInteger getMDfsID() {
-        return mDfsID;
-    }
-
-    public BigInteger getLDfsID() {
-        return lDfsID;
-    }
-
-    public String getUrl(int m) {
-        BigInteger dfs;
-        switch (m) {
-            case B_MUSIC:
-                dfs = bDfsID;
-                if (dfs != null) break;
-            case H_MUSIC:
-                dfs = hDfsID;
-                if (dfs != null) break;
-            case M_MUSIC:
-                dfs = mDfsID;
-                if (dfs != null) break;
-            case L_MUSIC:
-                dfs = lDfsID;
-                if (dfs != null) break;
-            default:
-                return null;
+    public void update() throws NoLoginException{
+        //get csrf"
+        String csrf = null;
+        for ( Cookie e : netEaseMusic.getCookieStore().getCookies()) {
+            if (e.getName().equals("__csrf")) {
+                csrf = e.getValue();
+            }
         }
-        return "http://m2.music.126.net/" + encryptedId(dfs) + "/" + dfs + ".mp3";
+        if (csrf == null) throw new NoLoginException();
+
+        String url = "http://music.163.com/weapi/song/enhance/player/url?csrf_token=" + csrf;
+
+        //build data
+        JSONObject jsonObject = new JSONObject();
+        JSONArray jsonIDs = new JSONArray();
+        jsonIDs.put(id);
+        jsonObject.put("ids", jsonIDs);
+        jsonObject.put("br", 320000);
+        jsonObject.put("csrf_token", csrf);
+        String data = jsonObject.toString();
+
+        String resp = netEaseMusic.rawHttpRequest(NetEaseMusic.HTTP_METHOD_POST, url, NetEaseMusic.encryptedRequest(data));
+
+        if (resp != null) {
+            JSONObject jsonSongs = new JSONObject(resp);
+            JSONObject jsonSong = (JSONObject) jsonSongs.getJSONArray("data").get(0);
+            if (jsonSong.getInt("code") == 200) {
+                this.url = jsonSong.getString("url");
+            }
+        }
+
+        netEaseMusic.getConfig().addSong(this);
     }
 
     @Override
     public String toString() {
-        return "{" + name + "," + id + "," + bDfsID + "}";
-    }
-
-    //based on [darknessomi/musicbox](https://github.com/darknessomi/musicbox)
-    private static String encryptedId(BigInteger id) {
-        byte key[] = songKey.getBytes();
-        int keyLen = key.length;
-        byte idb[] = id.toString().getBytes();
-
-        for (int i = 0 ; i < idb.length ; i++) {
-            idb[i] = (byte) (idb[i] ^ key[i % keyLen]);
-        }
-
-        String result = new String(Base64.encodeBase64(DigestUtils.md5(idb)));
-        result = result.replace('/', '_').replace('+', '-');
-
-        return result;
+        return "{" + name + "," + id + "}";
     }
 }
