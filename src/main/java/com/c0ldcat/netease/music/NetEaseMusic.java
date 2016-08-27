@@ -5,6 +5,8 @@ import com.c0ldcat.netease.music.utils.ConfigNoFoundException;
 import com.c0ldcat.netease.music.utils.NoLoginException;
 import com.c0ldcat.netease.music.utils.Utils;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.codec.digest.Md5Crypt;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.CookieStore;
@@ -18,6 +20,7 @@ import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.HttpClients;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import javax.crypto.Cipher;
@@ -26,6 +29,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.math.BigInteger;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 
 public class NetEaseMusic {
     //key
@@ -57,27 +61,31 @@ public class NetEaseMusic {
 
     private Config config;
     private int uid;
+    private ArrayList<Playlist> playlists;
 
     public static void main (String args[]) throws Exception{
         NetEaseMusic netEaseMusic = new NetEaseMusic("/home/c0ldcat/config");
-        netEaseMusic.userPlaylist();
+        //netEaseMusic.userPlaylist();
     }
 
     public NetEaseMusic(String configFile) {
-        config = new Config(configFile);
+        config = new Config(this, configFile); //read config file
 
+        //read config
         try {
             uid = config.getId();
             cookieStore = config.getCookieStore();
         } catch (ConfigNoFoundException e) {
-            switch (e.getKey()) {
-                case Config.CONFIG_ID:
-                case Config.CONFIG_COOKIE:
-                    uid = 0;
-                    cookieStore = new BasicCookieStore();
-                    config.setCookieStore(cookieStore);
-                    break;
-            }
+            uid = 0;
+            cookieStore = new BasicCookieStore();
+            config.setCookieStore(cookieStore);
+        }
+
+        try {
+            playlists = config.getPlaylists();
+            Utils.log(playlists.toString());
+        } catch (ConfigNoFoundException e) {
+            playlists = new ArrayList<>();
         }
 
         //set request config
@@ -122,11 +130,78 @@ public class NetEaseMusic {
     }
 
     public void userPlaylist() throws NoLoginException {
+        playlists = new ArrayList<>(); //renew playlists
+
+        //no login
         if (uid == 0) {
             throw new NoLoginException();
-        } else {
-            Utils.log(rawHttpRequest(HTTP_METHOD_GET, "http://music.163.com/api/user/playlist/?offset=0&limit=100&uid=" + uid));
         }
+
+        //send data
+        String data = rawHttpRequest(HTTP_METHOD_GET, "http://music.163.com/api/user/playlist/?offset=0&limit=100&uid=" + uid);
+
+        //request error
+        if (data == null) {
+            return;
+        }
+
+        //analyze response
+        JSONObject jsonData = new JSONObject(data);
+        for ( Object o : jsonData.getJSONArray("playlist")) {
+            JSONObject jsonPlayList = (JSONObject) o;
+
+            Playlist playlist = new Playlist(this, jsonPlayList.getString("name"), jsonPlayList.getInt("id"));
+
+            playlists.add(playlist); //add to field
+            config.addPlaylist(playlist); //add to config file
+        }
+    }
+
+    public ArrayList<Song> digPlayList(Playlist playlist) {
+        ArrayList<Song> list = new ArrayList<>(); //create list
+
+        //send data
+        String data = rawHttpRequest(HTTP_METHOD_GET, "http://music.163.com/api/playlist/detail?id=" + playlist.getId());
+
+        //request error
+        if (data == null) {
+            return list;
+        }
+
+        //analyze response
+        JSONObject jsonData = new JSONObject(data);
+        for ( Object o : jsonData.getJSONObject("result").getJSONArray("tracks")) {
+            JSONObject jsonSong = (JSONObject) o;
+
+            String name = jsonSong.getString("name");
+            int id = jsonSong.getInt("id");
+
+            //get repo id
+            BigInteger bDfsId, hDfsId, mDfsId, lDfsId;
+            try {
+                bDfsId = jsonSong.getJSONObject("bMusic").getBigInteger("dfsId");
+            } catch (JSONException e) {
+                bDfsId = null;
+            }
+            try {
+                hDfsId = jsonSong.getJSONObject("hMusic").getBigInteger("dfsId");
+            } catch (JSONException e) {
+                hDfsId = null;
+            }
+            try {
+                mDfsId = jsonSong.getJSONObject("mMusic").getBigInteger("dfsId");
+            } catch (JSONException e) {
+                mDfsId = null;
+            }
+            try {
+                lDfsId = jsonSong.getJSONObject("lMusic").getBigInteger("dfsId");
+            } catch (JSONException e) {
+                lDfsId = null;
+            }
+
+            list.add(new Song(this, name, id, bDfsId, hDfsId, mDfsId, lDfsId));
+        }
+        return list;
     }
 
     private String rawHttpRequest(int method, String action) {
