@@ -1,32 +1,38 @@
 package com.c0ldcat.netease.music;
 
-import com.c0ldcat.netease.music.utils.NoLoginException;
 import org.apache.http.cookie.Cookie;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.File;
+import java.net.MalformedURLException;
 
 public class Song {
     private String name;
     private int id;
     private NetEaseMusic netEaseMusic;
 
-    final static private String songKey = "3go8&$8*3*3h0k(2)2";
-
     private String url;
 
-    public Song(NetEaseMusic netEaseMusic, int id) {
-        this(netEaseMusic, null, id);
+    private final static String CONFIG_SONG_ID = "song_id";
+    private final static String CONFIG_SONG_NAME = "song_name";
+
+    Song(NetEaseMusic netEaseMusic, JSONObject target) {
+        this.netEaseMusic = netEaseMusic;
+        jsonUpdate(target);
     }
 
-    public Song(NetEaseMusic netEaseMusic, String name, int id) {
+    Song(NetEaseMusic netEaseMusic, String name, int id) {
         this(netEaseMusic, name, id, null);
     }
 
-    public Song(NetEaseMusic netEaseMusic, String name, int id, String url) {
+    Song(NetEaseMusic netEaseMusic, String name, int id, String url) {
         this.netEaseMusic = netEaseMusic;
         this.name = name;
         this.id = id;
         this.url = url;
+        netEaseMusic.getConfig().addSong(this);
     }
 
     public int getId() {
@@ -37,11 +43,33 @@ public class Song {
         return name;
     }
 
-    public String getUrl() {
-        return url;
+    public boolean isCached() {
+        File f = new File(netEaseMusic.getCacheDir().replaceAll("/$", "") + "/" + id + ".mp3");
+        return f.exists();
     }
 
-    public void update() throws NoLoginException{
+    public boolean cache() throws NoLoginException{
+        Utils.log("cache" + name);
+        if (isCached()) return true;
+
+        String cacheDir = netEaseMusic.getCacheDir();
+        if (cacheDir != null) {
+            String url = getUrl();
+            File f = new File(netEaseMusic.getCacheDir().replaceAll("/$", "") + "/" + id + ".mp3");
+            try {
+                new Downloader().download(url, f);
+            } catch (MalformedURLException e) {
+                //ignore
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public String getUrl() throws NoLoginException{
+        Utils.log("update" + name);
+
         //get csrf"
         String csrf = null;
         for ( Cookie e : netEaseMusic.getCookieStore().getCookies()) {
@@ -68,11 +96,35 @@ public class Song {
             JSONObject jsonSongs = new JSONObject(resp);
             JSONObject jsonSong = (JSONObject) jsonSongs.getJSONArray("data").get(0);
             if (jsonSong.getInt("code") == 200) {
-                this.url = jsonSong.getString("url");
+                return jsonSong.getString("url");
             }
         }
 
-        netEaseMusic.getConfig().addSong(this);
+        return null;
+    }
+
+    JSONObject toJson() {
+        JSONObject jsonSong = new JSONObject();
+        jsonSong.put(CONFIG_SONG_ID, getId());
+        jsonSong.put(CONFIG_SONG_NAME, getName());
+        return jsonSong;
+    }
+
+    private void jsonUpdate(JSONObject target) {
+        try {
+            name = target.getString(CONFIG_SONG_NAME);
+            id = target.getInt(CONFIG_SONG_ID);
+        } catch (JSONException e) {
+            //ignore
+        }
+    }
+
+    static boolean jsonEqual(JSONObject target, int id) {
+        try {
+            return target.getInt(CONFIG_SONG_ID) == id;
+        } catch (JSONException e) {
+            return false;
+        }
     }
 
     @Override

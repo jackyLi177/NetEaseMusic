@@ -1,9 +1,5 @@
 package com.c0ldcat.netease.music;
 
-import com.c0ldcat.netease.music.utils.Config;
-import com.c0ldcat.netease.music.utils.ConfigNoFoundException;
-import com.c0ldcat.netease.music.utils.NoLoginException;
-import com.c0ldcat.netease.music.utils.Utils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpResponse;
@@ -48,8 +44,8 @@ public class NetEaseMusic {
     };
 
     //action
-    final static public int HTTP_METHOD_GET = 0;
-    final static public int HTTP_METHOD_POST = 1;
+    final static int HTTP_METHOD_GET = 0;
+    final static int HTTP_METHOD_POST = 1;
 
     //state
     private CookieStore cookieStore;
@@ -59,10 +55,7 @@ public class NetEaseMusic {
     private Config config;
     private int uid;
     private ArrayList<Playlist> playlists;
-
-    public static void main (String args[]) throws Exception{
-        NetEaseMusic netEaseMusic = new NetEaseMusic("/home/c0ldcat/config");
-    }
+    private String cacheDir;
 
     public NetEaseMusic(String configFile) {
         config = new Config(this, configFile); //read config file
@@ -81,6 +74,17 @@ public class NetEaseMusic {
             playlists = config.getPlaylists();
         } catch (ConfigNoFoundException e) {
             playlists = new ArrayList<>();
+        }
+
+        cacheDir = config.getCacheDir();
+
+        //check cache dir
+        if (cacheDir != null) {
+            File f = new File(cacheDir);
+
+            if (!f.exists()) {
+                f.mkdir();
+            }
         }
 
         //set request config
@@ -124,7 +128,26 @@ public class NetEaseMusic {
         }
     }
 
-    public void userPlaylist() throws NoLoginException {
+    public void setCacheDir(String s) {
+        cacheDir = s;
+        config.setCacheDir(s);
+
+        //check cache dir
+        if (cacheDir != null) {
+            File f = new File(cacheDir);
+
+            if (!f.exists()) {
+                f.mkdir();
+            }
+        }
+    }
+
+    public String getCacheDir() {
+        return cacheDir;
+    }
+
+    public void updateUserPlaylist() throws NoLoginException {
+        config.removeAllPlaylists();
         playlists = new ArrayList<>(); //renew playlists
 
         //no login
@@ -155,15 +178,19 @@ public class NetEaseMusic {
         return playlists;
     }
 
-    public Config getConfig() {
+    Config getConfig() {
         return config;
     }
 
-    public CookieStore getCookieStore() {
+    public Playlist getPlaylist(int id) throws ConfigNoFoundException {
+        return config.getPlaylist(id);
+    }
+
+    CookieStore getCookieStore() {
         return cookieStore;
     }
 
-    public String rawHttpRequest(int method, String action) {
+    String rawHttpRequest(int method, String action) {
         if (method == HTTP_METHOD_GET) {
             return rawHttpRequest(method, action, null);
         } else {
@@ -171,7 +198,7 @@ public class NetEaseMusic {
         }
     }
 
-    public String rawHttpRequest(int method, String action, String data){
+    String rawHttpRequest(int method, String action, String data){
         String resp;
 
         HttpClient httpClient = HttpClients.createDefault();
@@ -231,7 +258,7 @@ public class NetEaseMusic {
     }
 
     //based on [darknessomi/musicbox](https://github.com/darknessomi/musicbox)
-    public static String encryptedRequest(String text) {
+    static String encryptedRequest(String text) {
         String secKey = createSecretKey(16);
         String encText = aesEncrypt(aesEncrypt(text, nonce), secKey);
         String encSecKey = rsaEncrypt(secKey, pubKey, modulus);

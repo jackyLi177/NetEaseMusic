@@ -1,4 +1,4 @@
-package com.c0ldcat.netease.music.utils;
+package com.c0ldcat.netease.music;
 
 public class NoLoginException extends Exception {
     @Override
