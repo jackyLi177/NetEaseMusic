@@ -128,6 +128,10 @@ public class NetEaseMusic {
         }
     }
 
+    public boolean isLogin() {
+        return uid != 0;
+    }
+
     public void setCacheDir(String s) {
         cacheDir = s;
         config.setCacheDir(s);

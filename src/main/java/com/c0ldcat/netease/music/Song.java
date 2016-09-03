@@ -67,10 +67,15 @@ public class Song {
         }
     }
 
+    public String getCache() {
+        Utils.log("cache" + name);
+        return netEaseMusic.getCacheDir().replaceAll("/$", "") + "/" + id + ".mp3";
+    }
+
     public String getUrl() throws NoLoginException{
         Utils.log("update" + name);
 
-        //get csrf"
+        //get csrf
         String csrf = null;
         for ( Cookie e : netEaseMusic.getCookieStore().getCookies()) {
             if (e.getName().equals("__csrf")) {
