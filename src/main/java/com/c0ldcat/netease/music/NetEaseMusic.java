@@ -109,7 +109,7 @@ public class NetEaseMusic {
         String data = encryptedRequest(requestJsonObject.toString());
 
         //post
-        String response = rawHttpRequest(HTTP_METHOD_POST, "https://music.163.com/weapi/login/", data);
+        String response = rawHttpRequest(HTTP_METHOD_POST, "http://music.163.com/weapi/login/", data);
         if (response == null) {
             Utils.log("login request error");
             return false;
@@ -151,7 +151,6 @@ public class NetEaseMusic {
     }
 
     public void updateUserPlaylist() throws NoLoginException {
-        config.removeAllPlaylists();
         playlists = new ArrayList<>(); //renew playlists
 
         //no login
@@ -166,6 +165,8 @@ public class NetEaseMusic {
         if (data == null) {
             return;
         }
+
+        config.removeAllPlaylists();
 
         //analyze response
         JSONObject jsonData = new JSONObject(data);
