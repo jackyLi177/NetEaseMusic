@@ -151,7 +151,6 @@ public class NetEaseMusic {
     }
 
     public void updateUserPlaylist() throws NoLoginException {
-        playlists = new ArrayList<>(); //renew playlists
 
         //no login
         if (uid == 0) {
@@ -166,6 +165,7 @@ public class NetEaseMusic {
             return;
         }
 
+        playlists = new ArrayList<>(); //renew playlists
         config.removeAllPlaylists();
 
         //analyze response
