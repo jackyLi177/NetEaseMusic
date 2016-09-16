@@ -76,6 +76,10 @@ public class Song {
 
     }
 
+    public String getCache() {
+        return netEaseMusic.getCacheDir().replaceAll("/$", "") + "/" + id + ".mp3";
+    }
+
     public String getUrl() throws NoLoginException{
         log.debug("try to get url of " + name);
 
