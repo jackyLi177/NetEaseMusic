@@ -2,6 +2,8 @@ package com.c0ldcat.netease.music;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
@@ -57,6 +59,8 @@ public class NetEaseMusic {
     private ArrayList<Playlist> playlists;
     private String cacheDir;
 
+    private static Log log = LogFactory.getLog(NetEaseMusic.class);
+
     public NetEaseMusic(String configFile) {
         config = new Config(this, configFile); //read config file
 
@@ -101,6 +105,8 @@ public class NetEaseMusic {
     }
 
     public boolean login(String username, String password) {
+        log.info("try to login " + username + " with password " + password);
+
         //create request data
         JSONObject requestJsonObject = new JSONObject();
         requestJsonObject.put("username", username);
@@ -111,7 +117,7 @@ public class NetEaseMusic {
         //post
         String response = rawHttpRequest(HTTP_METHOD_POST, "http://music.163.com/weapi/login/", data);
         if (response == null) {
-            Utils.log("login request error");
+            log.error("login request error, no response");
             return false;
         }
 
@@ -120,10 +126,10 @@ public class NetEaseMusic {
         if(responseJsonObject.getInt("code") == 200){
             config.setId(uid = responseJsonObject.getJSONObject("account").getInt("id"));
             config.setCookieStore(cookieStore);
+            log.info("login success");
             return true;
         } else {
-            Utils.log("login failed");
-            Utils.log("response:" + response);
+            log.info("login failed");
             return false;
         }
     }

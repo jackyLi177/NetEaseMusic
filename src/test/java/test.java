@@ -19,7 +19,8 @@ public class test {
         //netEaseMusic.login(username, password);
         //netEaseMusic.updateUserPlaylist();
         Playlist playlist = netEaseMusic.getPlaylist(312201485);
+        //playlist.update();
         playlist.cacheAll();
-        Utils.log(netEaseMusic.getCacheDir());
+        Utils.log(playlist.toString());
     }
 }

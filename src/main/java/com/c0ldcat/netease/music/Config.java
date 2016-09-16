@@ -1,6 +1,8 @@
 package com.c0ldcat.netease.music;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.client.CookieStore;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -24,20 +26,28 @@ class Config {
     private final static String CONFIG_SONG_LIST = "songs";
     private final static String CONFIG_CACHE_DIR = "cache_dir";
 
-    Config(NetEaseMusic netEaseMusic, String file) {
-        this.netEaseMusic = netEaseMusic;
+    private static Log log = LogFactory.getLog(Config.class);
 
+    Config(NetEaseMusic netEaseMusic, String file) {
+        log.debug("loading config from " + file);
+        this.netEaseMusic = netEaseMusic;
         configFile = file;
+
         try {
             configJson = new JSONObject(Utils.getStringFromInputStream(new FileInputStream(configFile)));
         } catch (FileNotFoundException|JSONException e) {
+            log.warn("load config failed, create new one");
             configJson = new JSONObject();
         }
+
+        log.debug("loaded config");
     }
 
     void save() throws IOException{
+        log.debug("saving config to " + configFile);
         Path file = Paths.get(configFile);
         Files.write(file, configJson.toString().getBytes());
+        log.debug("saved config");
     }
 
     int getId() throws ConfigNoFoundException {
@@ -68,6 +78,7 @@ class Config {
     }
 
     void setCookieStore(CookieStore cookieStore) {
+        log.debug("set cookie store");
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -82,6 +93,8 @@ class Config {
     }
 
     void addSong(Song song) {
+        log.debug("add song " + song.getName());
+
         //read songs
         JSONArray jsonSongs;
 
@@ -151,6 +164,8 @@ class Config {
     }
 
     void addPlaylist(Playlist playlist) {
+        log.debug("add playlist " + playlist.getName());
+
         //read playlists
         JSONArray jsonPlaylists;
         try {
@@ -196,6 +211,8 @@ class Config {
     }
 
     void removeAllPlaylists() {
+        log.debug("remove all playlist in config");
+
         try {
             configJson.remove(CONFIG_PLAYLIST_LIST);
         } catch (JSONException e) {
@@ -232,6 +249,8 @@ class Config {
     }
 
     void setCacheDir(String s) {
+        log.debug("set new cache dir " + s);
+
         configJson.put(CONFIG_CACHE_DIR, s);
 
         try {

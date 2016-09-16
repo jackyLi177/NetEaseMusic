@@ -1,5 +1,7 @@
 package com.c0ldcat.netease.music;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -14,6 +16,8 @@ public class Playlist extends ArrayList<Song> {
     private final static String CONFIG_PLAYLIST_ID = "playlist_id";
     private final static String CONFIG_PLAYLIST_NAME = "playlist_name";
     private final static String CONFIG_PLAYLIST_SONG_LIST = "playlist_song_list";
+
+    private static Log log = LogFactory.getLog(Playlist.class);
 
     Playlist(NetEaseMusic netEaseMusic, Config config, JSONObject target) {
         this.netEaseMusic = netEaseMusic;
@@ -48,14 +52,18 @@ public class Playlist extends ArrayList<Song> {
     }
 
     public void update() {
-        Utils.log("update" + name);
+        log.info("try to update playlist " + getName());
+
         //send data
         String data = netEaseMusic.rawHttpRequest(NetEaseMusic.HTTP_METHOD_GET, "http://music.163.com/api/playlist/detail?id=" + getId());
 
         //request error
         if (data == null) {
+            log.error("update playlist " + getName() + " failed, no response");
             return;
         }
+
+        log.debug("response is " + data);
 
         this.clear();
 
@@ -71,6 +79,8 @@ public class Playlist extends ArrayList<Song> {
         }
 
         netEaseMusic.getConfig().addPlaylist(this);
+
+        log.debug("updated playlist " + getName());
     }
 
     JSONObject toJson() {
