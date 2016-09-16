@@ -1,6 +1,5 @@
 package com.c0ldcat.netease.music;
 
-import com.sun.xml.internal.bind.v2.runtime.reflect.Accessor;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.cookie.Cookie;
