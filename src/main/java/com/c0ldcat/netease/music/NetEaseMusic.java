@@ -115,7 +115,7 @@ public class NetEaseMusic {
         String data = encryptedRequest(requestJsonObject.toString());
 
         //post
-        String response = rawHttpRequest(HTTP_METHOD_POST, "https://music.163.com/weapi/login?csrf_token=", data);
+        String response = rawHttpRequest(HTTP_METHOD_POST, "http://music.163.com/weapi/login?csrf_token=", data);
         if (response == null) {
             log.error("login request error, no response");
             return false;
